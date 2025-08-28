@@ -20,8 +20,17 @@ app.config['JWT_SECRET_KEY'] = os.getenv(
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 
 # Enable CORS for React frontend
-CORS(app, origins=['http://localhost:3000', 'http://localhost:3001',
-     'http://localhost:80', 'http://stats-frontend', 'http://localhost'])
+CORS(app, origins=[
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:80',
+    'http://stats-frontend',
+    'http://localhost',
+    'http://56.228.81.220',
+    'https://56.228.81.220',
+    'http://your-cloudfront-domain.com',
+    'https://your-cloudfront-domain.com'
+])
 jwt = JWTManager(app)
 
 # Database configuration
