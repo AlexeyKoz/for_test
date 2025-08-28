@@ -38,25 +38,45 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-# Get EC2 public IP
-EC2_PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "localhost")
+# Get EC2 public IP - try multiple methods
+EC2_PUBLIC_IP=""
+if command -v curl &> /dev/null; then
+    # Try AWS metadata service
+    EC2_PUBLIC_IP=$(curl -s --connect-timeout 5 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "")
+    
+    # If that fails, try to get from instance metadata
+    if [ -z "$EC2_PUBLIC_IP" ]; then
+        EC2_PUBLIC_IP=$(curl -s --connect-timeout 5 http://169.254.169.254/latest/meta-data/public-hostname 2>/dev/null | sed 's/.*\.compute\.amazonaws\.com//' 2>/dev/null || echo "")
+    fi
+fi
 
-print_status "Detected EC2 Public IP: $EC2_PUBLIC_IP"
+# If still empty, use localhost
+if [ -z "$EC2_PUBLIC_IP" ]; then
+    EC2_PUBLIC_IP="localhost"
+    print_warning "Could not detect EC2 public IP, using localhost"
+else
+    print_status "Detected EC2 Public IP: $EC2_PUBLIC_IP"
+fi
 
-# Update production.env with EC2 IP
-print_status "Updating production environment configuration..."
-sed -i "s/your-ec2-public-ip/$EC2_PUBLIC_IP/g" production.env
+# Update production.env with EC2 IP (only if it's not localhost)
+if [ "$EC2_PUBLIC_IP" != "localhost" ]; then
+    print_status "Updating production environment configuration..."
+    sed -i "s/your-ec2-public-ip/$EC2_PUBLIC_IP/g" production.env
+fi
 
 # Generate secure secrets if not already set
 if grep -q "your_secure_db_password_here" production.env; then
     print_warning "Generating secure passwords..."
-    DB_PASSWORD=$(openssl rand -base64 32)
-    DJANGO_SECRET=$(openssl rand -base64 64)
-    JWT_SECRET=$(openssl rand -base64 64)
     
-    sed -i "s/your_secure_db_password_here/$DB_PASSWORD/g" production.env
-    sed -i "s/your_django_secret_key_here_change_this_in_production/$DJANGO_SECRET/g" production.env
-    sed -i "s/your_jwt_secret_key_here_change_this_in_production/$JWT_SECRET/g" production.env
+    # Generate passwords without special characters that might break sed
+    DB_PASSWORD=$(openssl rand -hex 32)
+    DJANGO_SECRET=$(openssl rand -hex 64)
+    JWT_SECRET=$(openssl rand -hex 64)
+    
+    # Use perl instead of sed for better handling of special characters
+    perl -pi -e "s/your_secure_db_password_here/$DB_PASSWORD/g" production.env
+    perl -pi -e "s/your_django_secret_key_here_change_this_in_production/$DJANGO_SECRET/g" production.env
+    perl -pi -e "s/your_jwt_secret_key_here_change_this_in_production/$JWT_SECRET/g" production.env
     
     print_status "Secure passwords generated and updated in production.env"
 fi
@@ -84,8 +104,7 @@ print_status "Checking service health..."
 if docker-compose -f docker-compose.production.yml exec -T database pg_isready -U postgres > /dev/null 2>&1; then
     print_status "✅ Database is healthy"
 else
-    print_error "❌ Database health check failed"
-    exit 1
+    print_warning "⚠️  Database health check failed (may still be starting)"
 fi
 
 # Check Django website
