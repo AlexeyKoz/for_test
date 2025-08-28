@@ -1,0 +1,59 @@
+# ---- Global ignores ----
+.git
+.gitignore
+Dockerfile*
+.dockerignore
+README.md
+LICENSE
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.coverage
+*.egg-info/
+.eggs/
+.venv
+venv/
+ENV/
+env/
+
+# ---- Django (Vacation_Website) ----
+media/
+staticfiles/
+static_root/
+
+# ---- Flask backend (Vacations_Statistics_Website/backend) ----
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Node / React frontend (Vacations_Statistics_Website/frontend) ----
+node_modules/
+build/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Docker ----
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+.docker/
+
+# ---- AWS / CI/CD ----
+.aws/
+*.pem
+*.key
+*.crt

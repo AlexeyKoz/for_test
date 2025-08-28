@@ -1,0 +1,15 @@
+<!-- Logout confirmation page: informs the user they have been logged out. -->
+{% extends "base.html" %}
+
+{% block title %}Logged Out{% endblock %}
+
+{% block content %}
+<!-- Message for successful logout -->
+<div class="container py-5 text-center">
+    <div class="alert alert-info">
+        <h2>You have been logged out.</h2>
+        <!-- Button to return to home page -->
+        <a href="{% url 'core:home' %}" class="btn btn-primary mt-3">Return to Home</a>
+    </div>
+</div>
+{% endblock %}

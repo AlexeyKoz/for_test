@@ -1,0 +1,182 @@
+<!-- Home page: welcomes users and shows featured vacations. -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Home - Vacation Planner{% endblock %}
+
+{% block content %}
+<!-- User greeting and authentication actions -->
+<div class="container py-5">
+    <div class="d-flex justify-content-end mb-4">
+        {% if user.is_authenticated %}
+        <span class="align-self-center fw-bold me-3">Hello {{ user.first_name|default:user.email }}</span>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#logoutModal">Sign
+            Out</button>
+        <!-- Logout Modal -->
+        <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to log out?
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form method="post" action="{% url 'accounts:logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">Log Out</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Sign in and sign up buttons for guests -->
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary me-2">Sign In</a>
+        <a href="{% url 'accounts:signup' %}" class="btn btn-primary">Sign Up</a>
+        {% endif %}
+    </div>
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-md-8 mx-auto text-center">
+            <h1 class="display-4 mb-4">Welcome to Vacation Planner</h1>
+            <p class="lead mb-4">Discover amazing destinations and plan your perfect getaway</p>
+        </div>
+    </div>
+
+    <!-- Featured Vacations -->
+    <h2 class="text-center mb-4">Featured Vacations</h2>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for vacation in vacations %}
+        <!-- Card for a featured vacation -->
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="position-relative">
+                    {% if vacation.image %}
+                    <!-- Vacation image -->
+                    <img src="{{ vacation.image.url }}" class="card-img-top" alt="{{ vacation.country.name }}"
+                        style="height: 200px; object-fit: cover;">
+                    {% else %}
+                    <!-- Placeholder if no image -->
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                        style="height: 200px;">
+                        <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="position-absolute top-0 end-0 m-2">
+                        {% if user.is_authenticated %}
+                        <!-- Like button for authenticated users -->
+                        <button class="btn btn-sm like-button" data-vacation-id="{{ vacation.id }}"
+                            data-liked="{% if vacation.is_liked %}true{% else %}false{% endif %}"
+                            data-url="{% url 'vacations:vacation_like' vacation.id %}">
+                            <i class="bi bi-heart{% if vacation.is_liked %}-fill text-danger{% endif %}"></i>
+                            <span class="badge bg-light text-dark">{{ vacation.likes_count }}</span>
+                        </button>
+                        {% else %}
+                        <!-- Disabled like button for guests -->
+                        <button class="btn btn-sm like-button" type="button" disabled title="Sign in to like vacations">
+                            <i class="bi bi-heart"></i>
+                            <span class="badge bg-light text-dark">{{ vacation.likes_count }}</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ vacation.country.name }}</h5>
+                    <p class="card-text text-muted">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        {{ vacation.start_date|date:"M d, Y" }} - {{ vacation.end_date|date:"M d, Y" }}
+                    </p>
+                    <p class="card-text">
+                        {{ vacation.description|truncatewords:30 }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 mb-0 text-primary">${{ vacation.price }}</span>
+                        <!-- Link to vacation details -->
+                        <a href="{% url 'vacations:vacation_detail' vacation.id %}" class="btn btn-outline-primary">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <!-- Removed clock and days info -->
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <!-- Message if no vacations are available -->
+        <div class="col-12 text-center">
+            <p class="text-muted">No vacations available at the moment.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_js %}
+<!-- JavaScript for like button AJAX functionality -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const CSRF_TOKEN = getCookie('csrftoken');
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const likeButtons = document.querySelectorAll('.like-button');
+
+        likeButtons.forEach(button => {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                const vacationId = this.dataset.vacationId;
+                const url = this.dataset.url;
+                const isLiked = this.dataset.liked === 'true';
+                const icon = this.querySelector('i');
+                const badge = this.querySelector('.badge');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': CSRF_TOKEN,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Update like status
+                            this.dataset.liked = (!isLiked).toString();
+                            icon.classList.toggle('bi-heart');
+                            icon.classList.toggle('bi-heart-fill');
+                            icon.classList.toggle('text-danger');
+                            // Update like count
+                            badge.textContent = data.likes_count;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            });
+        });
+    });
+</script>
+{% endblock %}

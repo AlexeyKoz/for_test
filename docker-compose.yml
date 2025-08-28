@@ -1,0 +1,82 @@
+services:
+  # PostgreSQL Database (Shared by both Django and unified dashboard)
+  database:
+    image: postgres:15-alpine
+    container_name: vacation-db
+    env_file: ./docker.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-project_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - vacation-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Django Vacation Website (Main Website - Part 2)
+  django-website:
+    build: ../Vacation_Website
+    container_name: django-vacation-website
+    env_file: ./docker.env
+    environment:
+      DB_NAME: ${POSTGRES_DB:-project_db}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      DB_HOST: database
+      DB_PORT: 5432
+      DEBUG: ${DJANGO_DEBUG:-True}
+      SECRET_KEY: ${DJANGO_SECRET_KEY:-django-secret-key-change-in-production}
+      ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,56.228.81.220,django-website}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - vacation-network
+    restart: unless-stopped
+
+  # Dashboard Container (Flask Backend + React Frontend)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dashboard
+    env_file: ./docker.env
+    environment:
+      DB_NAME: ${POSTGRES_DB:-project_db}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      DB_HOST: database
+      DB_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-flask-jwt-secret-key-change-in-production}
+      FLASK_ENV: ${FLASK_ENV:-development}
+    ports:
+      - "3000:80"  # Frontend (nginx)
+      - "5001:5001"  # Backend API (direct access)
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - vacation-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  vacation-network:
+    driver: bridge

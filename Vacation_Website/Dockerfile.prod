@@ -1,0 +1,71 @@
+# Django Vacation Project Production Dockerfile
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=config.settings
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    dos2unix \
+    nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project
+COPY . .
+
+# Fix line endings for Windows compatibility
+RUN find . -name "*.sh" -exec dos2unix {} \;
+
+# Create directories for static and media files
+RUN mkdir -p /app/staticfiles
+RUN mkdir -p /app/media
+
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Make entrypoint script executable
+RUN chmod +x /app/docker-entrypoint.sh
+
+# Create nginx configuration
+RUN echo 'server { \
+    listen 8000; \
+    server_name localhost; \
+    location /static/ { \
+    alias /app/staticfiles/; \
+    } \
+    location /media/ { \
+    alias /app/media/; \
+    } \
+    location / { \
+    proxy_pass http://127.0.0.1:8001; \
+    proxy_set_header Host $host; \
+    proxy_set_header X-Real-IP $remote_addr; \
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+    proxy_set_header X-Forwarded-Proto $scheme; \
+    } \
+    }' > /etc/nginx/sites-available/django
+
+# Enable the site
+RUN ln -s /etc/nginx/sites-available/django /etc/nginx/sites-enabled/
+RUN rm /etc/nginx/sites-enabled/default
+
+# Expose port
+EXPOSE 8000
+
+# Run the startup script
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
